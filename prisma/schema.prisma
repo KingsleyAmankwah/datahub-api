@@ -1,0 +1,217 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Network {
+  MTN
+  TELECEL
+  AIRTELTIGO
+}
+
+enum OrderStatus {
+  PENDING
+  PAYMENT_INITIATED
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+  FULFILLMENT_INITIATED
+  FULFILLED
+  FULFILLMENT_FAILED
+  REFUNDED
+}
+
+enum PaymentProvider {
+  MTN_MOMO
+  TELECEL_CASH
+  AIRTELTIGO_MONEY
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum FulfillmentProvider {
+  HUBTEL
+  RINGO
+}
+
+enum FulfillmentStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+}
+
+enum BundleType {
+  DATA
+  VOICE
+  COMBO
+}
+
+model User {
+  id            String   @id @default(uuid())
+  phoneNumber   String   @unique
+  name          String?
+  isActive      Boolean  @default(true)
+  walletBalance Int      @default(0)
+
+  orders       Order[]
+  payments     Payment[]
+  ussdSessions UssdSession[]
+  auditLogs    AuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([phoneNumber])
+}
+
+model Bundle {
+  id           String     @id @default(uuid())
+  name         String
+  description  String?
+  network      Network
+  type         BundleType @default(DATA)
+  dataMb       Int?
+  validityDays Int
+  costPrice    Int
+  sellingPrice Int
+  isActive     Boolean    @default(true)
+  sortOrder    Int        @default(0)
+
+  orders Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([network, isActive])
+  @@index([isActive, sortOrder])
+}
+
+model Order {
+  id               String       @id @default(uuid())
+  reference        String       @unique
+  userId           String
+  user             User         @relation(fields: [userId], references: [id])
+  bundleId         String
+  bundle           Bundle       @relation(fields: [bundleId], references: [id])
+  recipientPhone   String
+  recipientNetwork Network
+  amount           Int
+  status           OrderStatus  @default(PENDING)
+  ussdSessionId    String?
+  ussdSession      UssdSession? @relation(fields: [ussdSessionId], references: [id])
+  payment          Payment?
+  fulfillment      Fulfillment?
+  auditLogs        AuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([recipientPhone])
+  @@index([createdAt])
+}
+
+model Payment {
+  id              String          @id @default(uuid())
+  orderId         String          @unique
+  order           Order           @relation(fields: [orderId], references: [id])
+  userId          String
+  user            User            @relation(fields: [userId], references: [id])
+  provider        PaymentProvider
+  status          PaymentStatus   @default(PENDING)
+  amount          Int
+  providerRef     String?
+  providerStatus  String?
+  providerPayload Json?
+  initiatedAt     DateTime        @default(now())
+  completedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([providerRef])
+  @@index([status])
+}
+
+model Fulfillment {
+  id              String              @id @default(uuid())
+  orderId         String              @unique
+  order           Order               @relation(fields: [orderId], references: [id])
+  provider        FulfillmentProvider @default(HUBTEL)
+  status          FulfillmentStatus   @default(PENDING)
+  providerRef     String?
+  providerStatus  String?
+  providerPayload Json?
+  attemptCount    Int                 @default(0)
+  lastAttemptAt   DateTime?
+  nextRetryAt     DateTime?
+  initiatedAt     DateTime            @default(now())
+  completedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([nextRetryAt])
+}
+
+model UssdSession {
+  id          String    @id @default(uuid())
+  sessionId   String    @unique
+  phoneNumber String
+  serviceCode String
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id])
+  interactions Json     @default("[]")
+  completedAt DateTime?
+  orders      Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([phoneNumber])
+  @@index([sessionId])
+}
+
+model AuditLog {
+  id       String  @id @default(uuid())
+  userId   String?
+  user     User?   @relation(fields: [userId], references: [id])
+  orderId  String?
+  order    Order?  @relation(fields: [orderId], references: [id])
+  action   String
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([orderId])
+  @@index([action])
+}
+
+model AdminUser {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

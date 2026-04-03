@@ -52,6 +52,13 @@ docker run -d --name redis --restart always -p 6380:6379 redis:latest
 # development
 npm run start:dev
 
+# Then start it — open a second terminal (keep your NestJS terminal running) and run:
+
+docker-compose up -d
+
+# Then verify both containers are healthy:
+docker-compose ps
+
 # production build
 npm run build
 npm run start:prod

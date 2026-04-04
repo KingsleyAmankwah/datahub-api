@@ -1,4 +1,32 @@
 services:
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    command: npm run start:dev
+    ports:
+      - '3000:3000'
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://datahub:secret@postgres:5432/datahub_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - datahub
+
   postgres:
     image: postgres:16-alpine
     environment:
@@ -14,6 +42,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+    networks:
+      - datahub
 
   redis:
     image: redis:7-alpine
@@ -27,7 +58,14 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+    restart: unless-stopped
+    networks:
+      - datahub
 
 volumes:
   postgres_data:
   redis_data:
+
+networks:
+  datahub:
+    driver: bridge

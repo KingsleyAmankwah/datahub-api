@@ -11,7 +11,7 @@ CREATE TYPE "PaymentProvider" AS ENUM ('MTN_MOMO', 'TELECEL_CASH', 'AIRTELTIGO_M
 CREATE TYPE "PaymentStatus" AS ENUM ('PENDING', 'SUCCESS', 'FAILED', 'CANCELLED', 'REFUNDED');
 
 -- CreateEnum
-CREATE TYPE "FulfillmentProvider" AS ENUM ('HUBTEL', 'RINGO');
+CREATE TYPE "FulfillmentProvider" AS ENUM ('HUBTEL', 'REMADATA');
 
 -- CreateEnum
 CREATE TYPE "FulfillmentStatus" AS ENUM ('PENDING', 'PROCESSING', 'SUCCESS', 'FAILED');

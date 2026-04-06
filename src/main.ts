@@ -11,6 +11,13 @@ async function bootstrap() {
   const port = config.get<number>('PORT', 3000);
   const nodeEnv = config.get<string>('NODE_ENV', 'development');
 
+  // CORS
+  app.enableCors({
+    origin: config.get<string>('CORS_ORIGIN', 'http://localhost:3001'),
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    credentials: true,
+  });
+
   // Security
   app.use(helmet());
 

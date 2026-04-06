@@ -44,7 +44,7 @@ enum PaymentStatus {
 
 enum FulfillmentProvider {
   HUBTEL
-  RINGO
+  REMADATA
 }
 
 enum FulfillmentStatus {

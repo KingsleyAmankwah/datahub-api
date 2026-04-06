@@ -41,4 +41,12 @@ export class OrdersController {
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.ordersService.findById(id);
   }
+
+  @Get(':id/audit')
+  @ApiOperation({ summary: 'Get audit log for an order' })
+  @ApiResponse({ status: 200, description: 'Audit log entries' })
+  @ApiResponse({ status: 404, description: 'Order not found' })
+  findAuditLogs(@Param('id', ParseUUIDPipe) id: string) {
+    return this.ordersService.findAuditLogs(id);
+  }
 }

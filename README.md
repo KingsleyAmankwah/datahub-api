@@ -38,6 +38,7 @@ PORT=3000
 ```bash
 npx prisma generate
 npx prisma migrate dev
+npx prisma studio
 ```
 
 ### 4. Start Redis locally

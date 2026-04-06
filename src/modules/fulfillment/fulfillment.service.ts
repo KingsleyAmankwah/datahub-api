@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/database/prisma.service';
 import { OrdersService } from '../orders/orders.service';
 import { HubtelProvider } from './providers/hubtel.provider';
-import { RingoProvider } from './providers/ringo.provider';
+import { RemaDataProvider } from './providers/rema-data.provider';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -23,7 +23,7 @@ export class FulfillmentService {
     private readonly prisma: PrismaService,
     private readonly orders: OrdersService,
     private readonly hubtel: HubtelProvider,
-    private readonly ringo: RingoProvider,
+    private readonly remaData: RemaDataProvider,
     private readonly config: ConfigService,
     private readonly notifications: NotificationsService,
   ) {
@@ -51,9 +51,9 @@ export class FulfillmentService {
     fulfillmentId: string,
     isFailover: boolean,
   ): Promise<void> {
-    const provider = isFailover ? this.ringo : this.hubtel;
+    const provider = isFailover ? this.remaData : this.hubtel;
     const providerEnum = isFailover
-      ? FulfillmentProvider.RINGO
+      ? FulfillmentProvider.REMADATA
       : FulfillmentProvider.HUBTEL;
 
     await this.prisma.fulfillment.update({
@@ -96,10 +96,10 @@ export class FulfillmentService {
         `Fulfillment SUCCESS: order=${order.reference} provider=${provider.name}`,
       );
     } else {
-      // Primary failed — try Ringo failover
+      // Primary failed — try RemaData failover
       if (!isFailover) {
         this.logger.warn(
-          `Hubtel failed for ${order.reference} — failing over to Ringo`,
+          `Hubtel failed for ${order.reference} — failing over to RemaData`,
         );
         await this.attemptFulfill(order, fulfillmentId, true);
         return;

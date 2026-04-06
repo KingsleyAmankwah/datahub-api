@@ -115,4 +115,22 @@ export class OrdersService {
       data: { orderId, userId, action, metadata },
     });
   }
+
+  async findAuditLogs(orderId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+    });
+    if (!order) throw new NotFoundException(`Order ${orderId} not found`);
+
+    return this.prisma.auditLog.findMany({
+      where: { orderId },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        action: true,
+        metadata: true,
+        createdAt: true,
+      },
+    });
+  }
 }

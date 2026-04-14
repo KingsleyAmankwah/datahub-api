@@ -6,6 +6,10 @@ class SendTestDto {
   @IsString()
   @IsNotEmpty()
   phone: string;
+
+  constructor(phone: string) {
+    this.phone = phone;
+  }
 }
 
 @Controller('notifications')

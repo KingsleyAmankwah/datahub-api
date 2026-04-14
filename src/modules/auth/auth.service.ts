@@ -8,6 +8,12 @@ import { IsEmail, IsString, MinLength } from 'class-validator';
 import { PrismaService } from 'src/database/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+
+export interface AdminPayload {
+  id: string;
+  email: string;
+  name: string;
+}
 export class LoginDto {
   @IsEmail()
   email: string;
@@ -15,6 +21,11 @@ export class LoginDto {
   @IsString()
   @MinLength(8)
   password: string;
+
+  constructor(email: string, password: string) {
+    this.email = email;
+    this.password = password;
+  }
 }
 
 export class CreateAdminDto {
@@ -28,12 +39,12 @@ export class CreateAdminDto {
   @IsString()
   @MinLength(2)
   name: string;
-}
 
-export interface AdminPayload {
-  id: string;
-  email: string;
-  name: string;
+  constructor(name: string, email: string, password: string) {
+    this.email = email;
+    this.password = password;
+    this.name = name;
+  }
 }
 
 @Injectable()

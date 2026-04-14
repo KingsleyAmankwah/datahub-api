@@ -36,3 +36,6 @@ coverage/
 # IDE
 .vscode/
 .idea/
+
+# Local credentials docs
+CREDENTIALS.md

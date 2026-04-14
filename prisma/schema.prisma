@@ -43,7 +43,6 @@ enum PaymentStatus {
 }
 
 enum FulfillmentProvider {
-  HUBTEL
   REMADATA
 }
 
@@ -152,7 +151,7 @@ model Fulfillment {
   id              String              @id @default(uuid())
   orderId         String              @unique
   order           Order               @relation(fields: [orderId], references: [id])
-  provider        FulfillmentProvider @default(HUBTEL)
+  provider        FulfillmentProvider @default(REMADATA)
   status          FulfillmentStatus   @default(PENDING)
   providerRef     String?
   providerStatus  String?

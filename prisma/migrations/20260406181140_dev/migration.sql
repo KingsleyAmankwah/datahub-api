@@ -11,7 +11,7 @@ CREATE TYPE "PaymentProvider" AS ENUM ('MTN_MOMO', 'TELECEL_CASH', 'AIRTELTIGO_M
 CREATE TYPE "PaymentStatus" AS ENUM ('PENDING', 'SUCCESS', 'FAILED', 'CANCELLED', 'REFUNDED');
 
 -- CreateEnum
-CREATE TYPE "FulfillmentProvider" AS ENUM ('HUBTEL', 'REMADATA');
+CREATE TYPE "FulfillmentProvider" AS ENUM ('REMADATA');
 
 -- CreateEnum
 CREATE TYPE "FulfillmentStatus" AS ENUM ('PENDING', 'PROCESSING', 'SUCCESS', 'FAILED');
@@ -91,7 +91,7 @@ CREATE TABLE "Payment" (
 CREATE TABLE "Fulfillment" (
     "id" TEXT NOT NULL,
     "orderId" TEXT NOT NULL,
-    "provider" "FulfillmentProvider" NOT NULL DEFAULT 'HUBTEL',
+    "provider" "FulfillmentProvider" NOT NULL DEFAULT 'REMADATA',
     "status" "FulfillmentStatus" NOT NULL DEFAULT 'PENDING',
     "providerRef" TEXT,
     "providerStatus" TEXT,

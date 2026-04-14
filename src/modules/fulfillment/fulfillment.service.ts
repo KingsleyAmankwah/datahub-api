@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/database/prisma.service';
 import { OrdersService } from '../orders/orders.service';
-import { HubtelProvider } from './providers/hubtel.provider';
 import { RemaDataProvider } from './providers/rema-data.provider';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
@@ -22,7 +21,6 @@ export class FulfillmentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly orders: OrdersService,
-    private readonly hubtel: HubtelProvider,
     private readonly remaData: RemaDataProvider,
     private readonly config: ConfigService,
     private readonly notifications: NotificationsService,
@@ -36,30 +34,24 @@ export class FulfillmentService {
     const fulfillment = await this.prisma.fulfillment.create({
       data: {
         orderId: order.id,
-        provider: FulfillmentProvider.HUBTEL,
+        provider: FulfillmentProvider.REMADATA,
         status: FulfillmentStatus.PENDING,
       },
     });
 
     await this.orders.updateStatus(order.id, OrderStatus.FULFILLMENT_INITIATED);
 
-    await this.attemptFulfill(order, fulfillment.id, false);
+    await this.attemptFulfill(order, fulfillment.id);
   }
 
   private async attemptFulfill(
     order: Order,
     fulfillmentId: string,
-    isFailover: boolean,
   ): Promise<void> {
-    const provider = isFailover ? this.remaData : this.hubtel;
-    const providerEnum = isFailover
-      ? FulfillmentProvider.REMADATA
-      : FulfillmentProvider.HUBTEL;
-
     await this.prisma.fulfillment.update({
       where: { id: fulfillmentId },
       data: {
-        provider: providerEnum,
+        provider: FulfillmentProvider.REMADATA,
         status: FulfillmentStatus.PROCESSING,
         lastAttemptAt: new Date(),
         attemptCount: { increment: 1 },
@@ -67,10 +59,10 @@ export class FulfillmentService {
     });
 
     this.logger.log(
-      `Fulfillment attempt via ${provider.name}: order=${order.reference} failover=${isFailover}`,
+      `Fulfillment attempt via RemaData: order=${order.reference}`,
     );
 
-    const result = await provider.fulfill(order);
+    const result = await this.remaData.fulfill(order);
 
     if (result.success) {
       await this.prisma.fulfillment.update({
@@ -93,19 +85,9 @@ export class FulfillmentService {
       });
 
       this.logger.log(
-        `Fulfillment SUCCESS: order=${order.reference} provider=${provider.name}`,
+        `Fulfillment SUCCESS: order=${order.reference} provider=REMADATA`,
       );
     } else {
-      // Primary failed — try RemaData failover
-      if (!isFailover) {
-        this.logger.warn(
-          `Hubtel failed for ${order.reference} — failing over to RemaData`,
-        );
-        await this.attemptFulfill(order, fulfillmentId, true);
-        return;
-      }
-
-      // Both failed — schedule retry
       const nextRetry = new Date(Date.now() + this.retryDelayMs);
 
       await this.prisma.fulfillment.update({
@@ -119,16 +101,13 @@ export class FulfillmentService {
 
       await this.orders.updateStatus(order.id, OrderStatus.FULFILLMENT_FAILED);
 
-      // Notify customer of failure
       this.notifications.sendFulfillmentFailed(order).catch((err: Error) => {
         this.logger.error(
           `Failure notification error for order ${order.reference}: ${err.message}`,
         );
       });
 
-      this.logger.error(
-        `Fulfillment FAILED on all providers: order=${order.reference}`,
-      );
+      this.logger.error(`Fulfillment FAILED: order=${order.reference}`);
     }
   }
 
@@ -150,7 +129,7 @@ export class FulfillmentService {
     this.logger.log(`Retrying ${failed.length} failed fulfillments`);
 
     for (const f of failed) {
-      await this.attemptFulfill(f.order, f.id, false);
+      await this.attemptFulfill(f.order, f.id);
     }
   }
 

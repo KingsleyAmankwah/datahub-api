@@ -19,6 +19,26 @@ export class CreateBundleDto {
   @IsInt() @Min(1) costPrice: number;
   @IsInt() @Min(1) sellingPrice: number;
   @IsOptional() @IsInt() sortOrder?: number;
+
+  constructor(
+    name: string,
+    network: Network,
+    dataMb: number,
+    validityDays: number,
+    costPrice: number,
+    sellingPrice: number,
+    description?: string,
+    sortOrder?: number,
+  ) {
+    this.name = name;
+    this.network = network;
+    this.dataMb = dataMb;
+    this.validityDays = validityDays;
+    this.costPrice = costPrice;
+    this.sellingPrice = sellingPrice;
+    this.description = description;
+    this.sortOrder = sortOrder;
+  }
 }
 
 export class UpdateBundleDto {

@@ -1,10 +1,14 @@
 import {
+  Body,
   Controller,
   DefaultValuePipe,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseIntPipe,
   ParseUUIDPipe,
+  Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -12,12 +16,43 @@ import { OrdersService } from './orders.service';
 import { OrderStatus } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { CreateOrderDto } from './dto/create-order.dto';
+import { UsersService } from '../users/users.service';
+import { PaymentsService } from '../payments/payments.service';
 
 @ApiTags('Orders')
 @Controller('orders')
 @UseGuards(JwtAuthGuard)
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(
+    private readonly ordersService: OrdersService,
+    private readonly usersService: UsersService,
+    private readonly paymentsService: PaymentsService,
+  ) {}
+
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Create a new order and initiate MoMo payment' })
+  @ApiResponse({
+    status: 201,
+    description: 'Order created and payment initiated',
+  })
+  @ApiResponse({ status: 400, description: 'Validation error' })
+  @ApiResponse({ status: 404, description: 'Bundle not found' })
+  async create(@Body() dto: CreateOrderDto) {
+    const user = await this.usersService.findOrCreate(dto.payerPhone);
+
+    const order = await this.ordersService.create({
+      userId: user.id,
+      bundleId: dto.bundleId,
+      recipientPhone: dto.recipientPhone,
+      recipientNetwork: dto.recipientNetwork,
+    });
+
+    this.paymentsService.initiateMoMo(order, dto.payerPhone).catch(() => {});
+
+    return order;
+  }
 
   @Get()
   @ApiOperation({ summary: 'List all orders (paginated)' })

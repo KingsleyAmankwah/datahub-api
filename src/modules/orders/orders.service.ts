@@ -77,6 +77,44 @@ export class OrdersService {
     return this.prisma.order.findUnique({ where: { reference } });
   }
 
+  async lookupByPhone(reference: string, phone: string) {
+    const raw = await this.prisma.order.findUnique({
+      where: { reference },
+      select: { userId: true, user: { select: { phoneNumber: true } } },
+    });
+    if (!raw || raw.user.phoneNumber !== phone) return null;
+
+    return this.prisma.order.findUnique({
+      where: { reference },
+      select: {
+        id: true,
+        reference: true,
+        recipientPhone: true,
+        recipientNetwork: true,
+        amount: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        bundle: {
+          select: {
+            name: true,
+            network: true,
+            type: true,
+            dataMb: true,
+            validityDays: true,
+            sellingPrice: true,
+          },
+        },
+        payment: {
+          select: { provider: true, status: true, amount: true },
+        },
+        fulfillment: {
+          select: { status: true, completedAt: true },
+        },
+      },
+    });
+  }
+
   async findAll(page = 1, limit = 20, status?: OrderStatus) {
     const skip = (page - 1) * limit;
     const where = status ? { status } : {};

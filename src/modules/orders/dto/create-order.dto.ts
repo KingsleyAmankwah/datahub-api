@@ -1,6 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Network } from '@prisma/client';
-import { IsEnum, IsString, Matches } from 'class-validator';
+import { IsString, Matches } from 'class-validator';
 
 export class CreateOrderDto {
   @ApiProperty({ example: 'uuid-of-bundle' })
@@ -14,29 +13,19 @@ export class CreateOrderDto {
   })
   recipientPhone: string;
 
-  @ApiProperty({ enum: Network })
-  @IsEnum(Network)
-  recipientNetwork: Network;
-
   @ApiProperty({
     example: '+233241234567',
     description: 'Phone number to charge via MoMo',
   })
   @IsString()
   @Matches(/^(\+233|0)[2-9]\d{8}$/, {
-    message: 'payerPhone must be a valid Ghana phone number',
+    message: 'buyerPhone must be a valid Ghana phone number',
   })
-  payerPhone: string;
+  buyerPhone: string;
 
-  constructor(
-    bundleId: string,
-    recipientPhone: string,
-    recipientNetwork: Network,
-    payerPhone: string,
-  ) {
+  constructor(bundleId: string, recipientPhone: string, buyerPhone: string) {
     this.bundleId = bundleId;
     this.recipientPhone = recipientPhone;
-    this.recipientNetwork = recipientNetwork;
-    this.payerPhone = payerPhone;
+    this.buyerPhone = buyerPhone;
   }
 }

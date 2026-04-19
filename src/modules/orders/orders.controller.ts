@@ -65,8 +65,8 @@ export class OrdersController {
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.CREATED)
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @ApiOperation({ summary: 'Create a new order and initiate MoMo payment' })
   @ApiResponse({
     status: 201,
@@ -75,16 +75,18 @@ export class OrdersController {
   @ApiResponse({ status: 400, description: 'Validation error' })
   @ApiResponse({ status: 404, description: 'Bundle not found' })
   async create(@Body() dto: CreateOrderDto) {
-    const user = await this.usersService.findOrCreate(dto.payerPhone);
+    const user = await this.usersService.findOrCreate(dto.buyerPhone);
+
+    const bundle = await this.ordersService.findBundle(dto.bundleId);
 
     const order = await this.ordersService.create({
       userId: user.id,
       bundleId: dto.bundleId,
       recipientPhone: dto.recipientPhone,
-      recipientNetwork: dto.recipientNetwork,
+      recipientNetwork: bundle.network,
     });
 
-    this.paymentsService.initiateMoMo(order, dto.payerPhone).catch(() => {});
+    this.paymentsService.initiateMoMo(order, dto.buyerPhone).catch(() => {});
 
     return order;
   }

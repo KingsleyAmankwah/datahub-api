@@ -61,6 +61,12 @@ export class OrdersService {
     return order;
   }
 
+  async findBundle(id: string) {
+    const bundle = await this.prisma.bundle.findUnique({ where: { id } });
+    if (!bundle) throw new NotFoundException('Bundle not found');
+    return bundle;
+  }
+
   async findById(id: string): Promise<Order | null> {
     return this.prisma.order.findUnique({
       where: { id },

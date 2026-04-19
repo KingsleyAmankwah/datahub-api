@@ -32,6 +32,38 @@ export class OrdersController {
     private readonly paymentsService: PaymentsService,
   ) {}
 
+  @Post('lookup')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @ApiOperation({ summary: 'Public order lookup by reference + phone' })
+  @ApiResponse({ status: 200, description: 'Order found' })
+  @ApiResponse({ status: 404, description: 'Order not found' })
+  async lookup(@Body() dto: LookupOrderDto) {
+    const order = await this.ordersService.lookupByPhone(
+      dto.reference,
+      dto.phone,
+    );
+    if (!order) throw new NotFoundException('Order not found');
+    return order;
+  }
+
+  @Post('lookup/audit')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @ApiOperation({
+    summary: 'Public order audit log lookup by reference + phone',
+  })
+  @ApiResponse({ status: 200, description: 'Audit log entries' })
+  @ApiResponse({ status: 404, description: 'Order not found' })
+  async lookupAudit(@Body() dto: LookupOrderDto) {
+    const order = await this.ordersService.lookupByPhone(
+      dto.reference,
+      dto.phone,
+    );
+    if (!order) throw new NotFoundException('Order not found');
+    return this.ordersService.findAuditLogs(order.id);
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.CREATED)

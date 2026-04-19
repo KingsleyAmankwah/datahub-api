@@ -1,46 +1,40 @@
-import {
-  Injectable,
-  Logger,
-  OnModuleDestroy,
-  OnModuleInit,
-} from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import Redis from 'ioredis';
 import { PrismaService } from 'src/database/prisma.service';
 import { SessionData, SessionState } from './session.types';
 
 @Injectable()
-export class SessionService implements OnModuleInit, OnModuleDestroy {
+export class SessionService implements OnModuleInit {
   private readonly logger = new Logger(SessionService.name);
-  private redis: Redis;
-  private readonly ttl: number;
+  private readonly store = new Map<
+    string,
+    { data: SessionData; expiresAt: number }
+  >();
+  private readonly ttlMs: number;
 
   constructor(
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
   ) {
-    this.ttl = this.config.get<number>('REDIS_TTL_SECONDS', 180);
+    this.ttlMs = this.config.get<number>('SESSION_TTL_SECONDS', 180) * 1000;
   }
 
   onModuleInit() {
-    this.redis = new Redis({
-      host: this.config.get<string>('REDIS_HOST', 'localhost'),
-      port: this.config.get<number>('REDIS_PORT', 6379),
-      password: this.config.get<string>('REDIS_PASSWORD') || undefined,
-      retryStrategy: (times) => Math.min(times * 100, 3000),
-    });
+    // Purge expired sessions every minute
+    setInterval(() => {
+      const now = Date.now();
+      for (const [key, entry] of this.store.entries()) {
+        if (entry.expiresAt < now) this.store.delete(key);
+      }
+    }, 60_000);
 
-    this.redis.on('connect', () => this.logger.log('Redis connected'));
-    this.redis.on('error', (err) => this.logger.error('Redis error', err));
-  }
-
-  async onModuleDestroy() {
-    await this.redis.quit();
+    this.logger.log('Session store ready (in-memory)');
   }
 
   private key(sessionId: string): string {
     return `ussd:session:${sessionId}`;
   }
+
   async getOrCreate(
     sessionId: string,
     phoneNumber: string,
@@ -62,7 +56,6 @@ export class SessionService implements OnModuleInit, OnModuleDestroy {
 
     await this.save(session);
 
-    // Create record in DB immediately — live state stays in Redis
     await this.prisma.ussdSession.create({
       data: { sessionId, phoneNumber, serviceCode },
     });
@@ -70,19 +63,22 @@ export class SessionService implements OnModuleInit, OnModuleDestroy {
     return session;
   }
 
-  async get(sessionId: string): Promise<SessionData | null> {
-    const raw = await this.redis.get(this.key(sessionId));
-    if (!raw) return null;
-    return JSON.parse(raw) as SessionData;
+  get(sessionId: string): Promise<SessionData | null> {
+    const entry = this.store.get(this.key(sessionId));
+    if (!entry || entry.expiresAt < Date.now()) {
+      this.store.delete(this.key(sessionId));
+      return Promise.resolve(null);
+    }
+    return Promise.resolve(entry.data);
   }
 
-  async save(session: SessionData): Promise<void> {
+  save(session: SessionData): Promise<void> {
     session.updatedAt = new Date().toISOString();
-    await this.redis.setex(
-      this.key(session.sessionId),
-      this.ttl,
-      JSON.stringify(session),
-    );
+    this.store.set(this.key(session.sessionId), {
+      data: session,
+      expiresAt: Date.now() + this.ttlMs,
+    });
+    return Promise.resolve();
   }
 
   async addInteraction(
@@ -107,11 +103,12 @@ export class SessionService implements OnModuleInit, OnModuleDestroy {
       },
     });
 
-    await this.redis.del(this.key(session.sessionId));
+    this.store.delete(this.key(session.sessionId));
     this.logger.debug(`Session archived: ${session.sessionId}`);
   }
 
-  async delete(sessionId: string): Promise<void> {
-    await this.redis.del(this.key(sessionId));
+  delete(sessionId: string): Promise<void> {
+    this.store.delete(this.key(sessionId));
+    return Promise.resolve();
   }
 }

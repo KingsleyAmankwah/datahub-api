@@ -107,9 +107,29 @@ export class OrdersController {
     return this.ordersService.findAll(page, limit, status);
   }
 
+  @Get(':id/status')
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @ApiOperation({ summary: 'Public order status check by ID' })
+  @ApiResponse({ status: 200, description: 'Order status' })
+  @ApiResponse({ status: 404, description: 'Order not found' })
+  async getStatus(@Param('id', ParseUUIDPipe) id: string) {
+    const order = await this.ordersService.findById(id);
+    if (!order) throw new NotFoundException('Order not found');
+    return {
+      id: order.id,
+      reference: order.reference,
+      status: order.status,
+      amount: order.amount,
+      recipientPhone: order.recipientPhone,
+      recipientNetwork: order.recipientNetwork,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+    };
+  }
+
   @Get(':id')
   @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Get single order by ID' })
+  @ApiOperation({ summary: 'Get single order by ID (admin)' })
   @ApiResponse({ status: 200, description: 'Order found' })
   @ApiResponse({ status: 404, description: 'Order not found' })
   findOne(@Param('id', ParseUUIDPipe) id: string) {

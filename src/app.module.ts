@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { DatabaseModule } from './database/database.module';
 import { SessionModule } from './modules/session/session.module';
 import { UsersModule } from './modules/users/users.module';
@@ -19,6 +21,7 @@ import { BundlesModule } from './modules/bundles/bundles.module';
       envFilePath: '.env',
       cache: true,
     }),
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 1000 }]),
     ScheduleModule.forRoot(),
     DatabaseModule,
     SessionModule,
@@ -31,5 +34,6 @@ import { BundlesModule } from './modules/bundles/bundles.module';
     NotificationsModule,
     UssdModule,
   ],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

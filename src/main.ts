@@ -37,8 +37,8 @@ async function bootstrap() {
   // Swagger — development only
   if (nodeEnv !== 'production') {
     const swaggerConfig = new DocumentBuilder()
-      .setTitle('DataHub API')
-      .setDescription('USSD Data Bundle Platform')
+      .setTitle('Bundle Boss API')
+      .setDescription('USSD and Web Based Data Bundle Platform')
       .setVersion('1.0')
       .addBearerAuth()
       .build();

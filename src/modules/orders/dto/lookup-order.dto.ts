@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsNotEmpty } from 'class-validator';
 
 export class LookupOrderDto {
-  @ApiProperty({ example: 'DH-20240101-XXXX' })
+  @ApiProperty({ example: 'BB-20240101-XXXX' })
   @IsString()
   @IsNotEmpty()
   reference: string;

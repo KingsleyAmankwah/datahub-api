@@ -145,7 +145,7 @@ export class OrdersService {
   private generateReference(): string {
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const suffix = randomUUID().split('-')[0].toUpperCase();
-    return `DH-${date}-${suffix}`;
+    return `BB-${date}-${suffix}`;
   }
 
   async audit(

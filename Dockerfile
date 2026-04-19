@@ -35,8 +35,6 @@ RUN addgroup --system --gid 1001 datahub && \
 # Copy only what runtime needs
 COPY --from=builder --chown=datahub:datahub /app/dist ./dist
 COPY --from=builder --chown=datahub:datahub /app/node_modules ./node_modules
-COPY --from=builder --chown=datahub:datahub /app/prisma ./prisma
-COPY --from=builder --chown=datahub:datahub /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder --chown=datahub:datahub /app/package.json ./package.json
 
 USER datahub
@@ -45,4 +43,4 @@ EXPOSE 3000
 
 # dumb-init handles signals properly for graceful shutdown
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "dist/main"]
+CMD ["node", "dist/src/main"]

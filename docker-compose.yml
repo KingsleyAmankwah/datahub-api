@@ -13,15 +13,11 @@ services:
     environment:
       NODE_ENV: development
       DATABASE_URL: postgresql://datahub:secret@postgres:5432/datahub_db
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
     volumes:
       - .:/app
       - /app/node_modules
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
     restart: unless-stopped
     networks:
@@ -46,25 +42,8 @@ services:
     networks:
       - datahub
 
-  redis:
-    image: redis:7-alpine
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
-    ports:
-      - '6379:6379'
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
-      interval: 10s
-      timeout: 3s
-      retries: 5
-    restart: unless-stopped
-    networks:
-      - datahub
-
 volumes:
   postgres_data:
-  redis_data:
 
 networks:
   datahub:

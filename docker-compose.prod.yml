@@ -2,7 +2,7 @@ services:
   api:
     build:
       target: runner
-    command: node dist/main
+    command: node dist/src/main
     environment:
       NODE_ENV: production
     volumes: []
@@ -18,12 +18,3 @@ services:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
-
-  redis:
-    ports: []
-    command: >
-      redis-server
-      --appendonly yes
-      --maxmemory 512mb
-      --maxmemory-policy allkeys-lru
-      --requirepass ${REDIS_PASSWORD}

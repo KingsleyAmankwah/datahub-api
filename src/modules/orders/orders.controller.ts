@@ -22,7 +22,6 @@ import { PaymentsService } from '../payments/payments.service';
 
 @ApiTags('Orders')
 @Controller('orders')
-@UseGuards(JwtAuthGuard)
 export class OrdersController {
   constructor(
     private readonly ordersService: OrdersService,
@@ -31,6 +30,7 @@ export class OrdersController {
   ) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new order and initiate MoMo payment' })
   @ApiResponse({
@@ -55,6 +55,7 @@ export class OrdersController {
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'List all orders (paginated)' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
@@ -70,6 +71,7 @@ export class OrdersController {
   }
 
   @Get(':id')
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Get single order by ID' })
   @ApiResponse({ status: 200, description: 'Order found' })
   @ApiResponse({ status: 404, description: 'Order not found' })
@@ -78,6 +80,7 @@ export class OrdersController {
   }
 
   @Get(':id/audit')
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Get audit log for an order' })
   @ApiResponse({ status: 200, description: 'Audit log entries' })
   @ApiResponse({ status: 404, description: 'Order not found' })

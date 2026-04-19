@@ -64,7 +64,12 @@ export class OrdersService {
   async findById(id: string): Promise<Order | null> {
     return this.prisma.order.findUnique({
       where: { id },
-      include: { bundle: true, payment: true, fulfillment: true },
+      include: {
+        bundle: true,
+        payment: true,
+        fulfillment: true,
+        user: { select: { id: true, phoneNumber: true, name: true } },
+      },
     });
   }
 

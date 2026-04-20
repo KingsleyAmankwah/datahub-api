@@ -76,6 +76,10 @@ export class MtnMomoProvider implements IPaymentProvider {
     const amountGhs = (order.amount / 100).toFixed(2);
     const phone = payerPhone.replace('+', '');
 
+    this.logger.log(
+      `MoMo initiate called: order=${order.reference} phone=${phone} amount=${amountGhs} env=${this.targetEnv} hasKey=${!!this.subscriptionKey}`,
+    );
+
     try {
       const token = await this.getAccessToken();
 
@@ -89,7 +93,7 @@ export class MtnMomoProvider implements IPaymentProvider {
             partyIdType: 'MSISDN',
             partyId: phone,
           },
-          payerMessage: `DataHub: Pay GH₵${amountGhs} for data bundle`,
+          payerMessage: `Bundle Boss: Pay GH₵${amountGhs} for data bundle`,
           payeeNote: `Order: ${order.reference}`,
         },
         {

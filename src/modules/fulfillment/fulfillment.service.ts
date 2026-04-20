@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/database/prisma.service';
 import { OrdersService } from '../orders/orders.service';
-import { RemaDataProvider } from './providers/rema-data.provider';
+import { MockFulfillmentProvider } from './providers/mock-fulfillment.provider';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -21,12 +21,15 @@ export class FulfillmentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly orders: OrdersService,
-    private readonly remaData: RemaDataProvider,
+    private readonly remaData: MockFulfillmentProvider,
     private readonly config: ConfigService,
     private readonly notifications: NotificationsService,
   ) {
     this.maxRetries = parseInt(config.get('FULFILLMENT_MAX_RETRIES', '3'), 10);
-    this.retryDelayMs = config.get<number>('FULFILLMENT_RETRY_DELAY_MS', 5000);
+    this.retryDelayMs = parseInt(
+      config.get('FULFILLMENT_RETRY_DELAY_MS', '5000'),
+      10,
+    );
   }
 
   // Called immediately after payment success

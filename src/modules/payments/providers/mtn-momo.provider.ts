@@ -79,30 +79,29 @@ export class MtnMomoProvider implements IPaymentProvider {
     try {
       const token = await this.getAccessToken();
 
-      await this.http.post(
-        '/collection/v1_0/requesttopay',
-        {
-          amount: amountGhs,
-          currency: this.targetEnv === 'sandbox' ? 'EUR' : 'GHS',
-          externalId,
-          payer: {
-            partyIdType: 'MSISDN',
-            partyId: phone,
-          },
-          payerMessage: `Bundle Boss: Pay GH₵${amountGhs} for data bundle`,
-          payeeNote: `Order: ${order.reference}`,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'X-Reference-Id': externalId,
-            'X-Target-Environment': this.targetEnv,
-            ...(this.callbackUrl ? { 'X-Callback-Url': this.callbackUrl } : {}),
-            'Ocp-Apim-Subscription-Key': this.subscriptionKey,
-            'Content-Type': 'application/json',
-          },
-        },
+      const body = {
+        amount: amountGhs,
+        currency: this.targetEnv === 'sandbox' ? 'EUR' : 'GHS',
+        externalId,
+        payer: { partyIdType: 'MSISDN', partyId: phone },
+        payerMessage: `Bundle Boss: Pay GH₵${amountGhs} for data bundle`,
+        payeeNote: `Order: ${order.reference}`,
+      };
+
+      this.logger.log(
+        `MoMo sending: env=${this.targetEnv} callbackUrl=${this.callbackUrl} body=${JSON.stringify(body)}`,
       );
+
+      await this.http.post('/collection/v1_0/requesttopay', body, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'X-Reference-Id': externalId,
+          'X-Target-Environment': this.targetEnv,
+          ...(this.callbackUrl ? { 'X-Callback-Url': this.callbackUrl } : {}),
+          'Ocp-Apim-Subscription-Key': this.subscriptionKey,
+          'Content-Type': 'application/json',
+        },
+      });
 
       this.logger.log(
         `MoMo request-to-pay initiated: ref=${externalId} order=${order.reference}`,
@@ -121,7 +120,7 @@ export class MtnMomoProvider implements IPaymentProvider {
         : 'Unknown error';
 
       this.logger.error(
-        `MoMo initiate failed for order ${order.reference}: ${message}`,
+        `MoMo initiate failed for order ${order.reference}: ${message} | body=${JSON.stringify(axiosErr?.response?.data)} | status=${axiosErr?.response?.status}`,
       );
 
       return {

@@ -12,6 +12,7 @@ import {
   Post,
   Query,
   UseGuards,
+  Logger,
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { OrderStatus } from '@prisma/client';
@@ -26,6 +27,8 @@ import { Throttle } from '@nestjs/throttler';
 @ApiTags('Orders')
 @Controller('orders')
 export class OrdersController {
+  private readonly logger = new Logger(OrdersController.name);
+
   constructor(
     private readonly ordersService: OrdersService,
     private readonly usersService: UsersService,
@@ -86,7 +89,13 @@ export class OrdersController {
       recipientNetwork: bundle.network,
     });
 
-    this.paymentsService.initiateMoMo(order, dto.buyerPhone).catch(() => {});
+    this.paymentsService
+      .initiateMoMo(order, dto.buyerPhone)
+      .catch((err: Error) => {
+        this.logger.error(
+          `MoMo initiation failed for order ${order.reference}: ${err.message}`,
+        );
+      });
 
     return order;
   }

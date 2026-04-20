@@ -76,10 +76,6 @@ export class MtnMomoProvider implements IPaymentProvider {
     const amountGhs = (order.amount / 100).toFixed(2);
     const phone = payerPhone.replace('+', '');
 
-    this.logger.log(
-      `MoMo initiate called: order=${order.reference} phone=${phone} amount=${amountGhs} env=${this.targetEnv} hasKey=${!!this.subscriptionKey}`,
-    );
-
     try {
       const token = await this.getAccessToken();
 
@@ -101,7 +97,7 @@ export class MtnMomoProvider implements IPaymentProvider {
             Authorization: `Bearer ${token}`,
             'X-Reference-Id': externalId,
             'X-Target-Environment': this.targetEnv,
-            'X-Callback-Url': this.callbackUrl,
+            ...(this.callbackUrl ? { 'X-Callback-Url': this.callbackUrl } : {}),
             'Ocp-Apim-Subscription-Key': this.subscriptionKey,
             'Content-Type': 'application/json',
           },
@@ -125,7 +121,7 @@ export class MtnMomoProvider implements IPaymentProvider {
         : 'Unknown error';
 
       this.logger.error(
-        `MoMo initiate failed for order ${order.reference}: ${message} | response=${JSON.stringify(axiosErr?.response?.data)}`,
+        `MoMo initiate failed for order ${order.reference}: ${message}`,
       );
 
       return {

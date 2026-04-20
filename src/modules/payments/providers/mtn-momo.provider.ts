@@ -83,7 +83,7 @@ export class MtnMomoProvider implements IPaymentProvider {
         '/collection/v1_0/requesttopay',
         {
           amount: amountGhs,
-          currency: 'GHS',
+          currency: this.targetEnv === 'sandbox' ? 'EUR' : 'GHS',
           externalId,
           payer: {
             partyIdType: 'MSISDN',

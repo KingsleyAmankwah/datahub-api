@@ -114,14 +114,15 @@ export class MtnMomoProvider implements IPaymentProvider {
         success: true,
       };
     } catch (err: unknown) {
-      const message =
-        err instanceof AxiosError
-          ? ((err.response?.data as { message?: string })?.message ??
-            err.message)
-          : 'Unknown error';
+      const axiosErr = err instanceof AxiosError ? err : null;
+      const message = axiosErr
+        ? ((axiosErr.response?.data as { message?: string })?.message ??
+          axiosErr.message)
+        : 'Unknown error';
 
       this.logger.error(
         `MoMo initiate failed for order ${order.reference}: ${message}`,
+        axiosErr?.response?.data,
       );
 
       return {

@@ -21,7 +21,7 @@ export class NotificationsService {
   ) {
     const token = config.get<string>('GIANT_SMS_TOKEN', '');
 
-    this.senderId = config.get('GIANT_SMS_SENDER_ID', 'DataHub');
+    this.senderId = config.get('GIANT_SMS_SENDER_ID', 'BundleBoss');
 
     this.http = axios.create({
       baseURL: config.get<string>(
@@ -54,8 +54,8 @@ export class NotificationsService {
     const isSelf = order.recipientPhone === buyerPhone;
 
     const message = isSelf
-      ? `DataHub: Your ${size} data bundle has been activated. Ref: ${order.reference}. Thank you!`
-      : `DataHub: ${size} data sent to ${order.recipientPhone}. Ref: ${order.reference}. GH₵${price} charged. Thank you!`;
+      ? `BundleBoss: Your ${size} data bundle has been activated. Ref: ${order.reference}. Thank you!`
+      : `BundleBoss: ${size} data sent to ${order.recipientPhone}. Ref: ${order.reference}. GH₵${price} charged. Thank you!`;
 
     await this.sendSms(buyerPhone, message);
   }
@@ -63,7 +63,7 @@ export class NotificationsService {
   async sendFulfillmentFailed(order: Order): Promise<void> {
     const buyerPhone = await this.getPhoneByUserId(order.userId);
     const message =
-      `DataHub: Sorry, order ${order.reference} could not be fulfilled. ` +
+      `BundleBoss: Sorry, order ${order.reference} could not be fulfilled. ` +
       `Our team is on it. You will be refunded within 24hrs. Call 0XXXXXXXX for help.`;
 
     await this.sendSms(buyerPhone, message);
@@ -72,7 +72,7 @@ export class NotificationsService {
   async sendPaymentFailed(userId: string, reference: string): Promise<void> {
     const buyerPhone = await this.getPhoneByUserId(userId);
     const message =
-      `DataHub: Payment for order ${reference} was not completed. ` +
+      `BundleBoss: Payment for order ${reference} was not completed. ` +
       `Please try again or call 0XXXXXXXX for support.`;
 
     await this.sendSms(buyerPhone, message);
@@ -120,7 +120,7 @@ export class NotificationsService {
   async sendTest(phone: string): Promise<void> {
     await this.sendSms(
       phone,
-      'DataHub: Test message. Your SMS integration is working!',
+      'BundleBoss: Test message. Your SMS integration is working!',
     );
   }
 }

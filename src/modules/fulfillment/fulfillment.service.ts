@@ -80,12 +80,12 @@ export class FulfillmentService {
 
       await this.orders.updateStatus(order.id, OrderStatus.FULFILLED);
 
-      // Notify customer
-      this.notifications.sendFulfillmentSuccess(order).catch((err: Error) => {
-        this.logger.error(
-          `Notification failed for order ${order.reference}: ${err.message}`,
-        );
-      });
+      // Turn off notifications for now - we can re-enable once we're confident in fulfillment stability
+      // this.notifications.sendFulfillmentSuccess(order).catch((err: Error) => {
+      //   this.logger.error(
+      //     `Notification failed for order ${order.reference}: ${err.message}`,
+      //   );
+      // });
 
       this.logger.log(
         `Fulfillment SUCCESS: order=${order.reference} provider=REMADATA`,
@@ -104,11 +104,12 @@ export class FulfillmentService {
 
       await this.orders.updateStatus(order.id, OrderStatus.FULFILLMENT_FAILED);
 
-      this.notifications.sendFulfillmentFailed(order).catch((err: Error) => {
-        this.logger.error(
-          `Failure notification error for order ${order.reference}: ${err.message}`,
-        );
-      });
+      // Notifications are currently turned off for fulfillment failures to avoid spamming customers during early testing.
+      // this.notifications.sendFulfillmentFailed(order).catch((err: Error) => {
+      //   this.logger.error(
+      //     `Failure notification error for order ${order.reference}: ${err.message}`,
+      //   );
+      // });
 
       this.logger.error(`Fulfillment FAILED: order=${order.reference}`);
     }

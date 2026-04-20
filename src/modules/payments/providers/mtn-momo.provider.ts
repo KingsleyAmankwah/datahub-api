@@ -84,7 +84,7 @@ export class MtnMomoProvider implements IPaymentProvider {
         currency: this.targetEnv === 'sandbox' ? 'EUR' : 'GHS',
         externalId,
         payer: { partyIdType: 'MSISDN', partyId: phone },
-        payerMessage: `Bundle Boss: Pay GH₵${amountGhs} for data bundle`,
+        payerMessage: `Bundle Boss: Pay GHS ${amountGhs} for data bundle`,
         payeeNote: `Order: ${order.reference}`,
       };
 

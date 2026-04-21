@@ -1,4 +1,7 @@
-import { Order } from '@prisma/client';
+export interface PaymentInitiateInput {
+  reference: string;
+  amount: number;
+}
 
 export interface PaymentInitiateResult {
   providerRef: string;
@@ -11,11 +14,14 @@ export interface PaymentStatusResult {
   providerRef: string;
   status: 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
   providerStatus: string;
-  providerPayload?: Record<string, any>;
+  providerPayload?: Record<string, unknown>;
 }
 
 export interface IPaymentProvider {
   readonly name: string;
-  initiate(order: Order, payerPhone: string): Promise<PaymentInitiateResult>;
+  initiate(
+    input: PaymentInitiateInput,
+    payerPhone: string,
+  ): Promise<PaymentInitiateResult>;
   checkStatus(providerRef: string): Promise<PaymentStatusResult>;
 }

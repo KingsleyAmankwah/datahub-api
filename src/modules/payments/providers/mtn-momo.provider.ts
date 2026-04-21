@@ -1,13 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
   IPaymentProvider,
+  PaymentInitiateInput,
   PaymentInitiateResult,
   PaymentStatusResult,
 } from './payment-provider.interface';
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
-import { Order } from '@prisma/client';
 
 interface MoMoTokenResponse {
   access_token: string;
@@ -69,11 +69,11 @@ export class MtnMomoProvider implements IPaymentProvider {
   }
 
   async initiate(
-    order: Order,
+    input: PaymentInitiateInput,
     payerPhone: string,
   ): Promise<PaymentInitiateResult> {
     const externalId = randomUUID();
-    const amountGhs = (order.amount / 100).toFixed(2);
+    const amountGhs = (input.amount / 100).toFixed(2);
     const phone = payerPhone.replace('+', '');
 
     try {
@@ -85,12 +85,8 @@ export class MtnMomoProvider implements IPaymentProvider {
         externalId,
         payer: { partyIdType: 'MSISDN', partyId: phone },
         payerMessage: `Bundle Boss: Pay GHS ${amountGhs} for data bundle`,
-        payeeNote: `Order: ${order.reference}`,
+        payeeNote: `Ref: ${input.reference}`,
       };
-
-      this.logger.log(
-        `MoMo sending: env=${this.targetEnv} callbackUrl=${this.callbackUrl} body=${JSON.stringify(body)}`,
-      );
 
       await this.http.post('/collection/v1_0/requesttopay', body, {
         headers: {
@@ -104,7 +100,7 @@ export class MtnMomoProvider implements IPaymentProvider {
       });
 
       this.logger.log(
-        `MoMo request-to-pay initiated: ref=${externalId} order=${order.reference}`,
+        `MoMo request-to-pay initiated: ref=${externalId} input=${input.reference}`,
       );
 
       return {
@@ -120,7 +116,7 @@ export class MtnMomoProvider implements IPaymentProvider {
         : 'Unknown error';
 
       this.logger.error(
-        `MoMo initiate failed for order ${order.reference}: ${message} | body=${JSON.stringify(axiosErr?.response?.data)} | status=${axiosErr?.response?.status}`,
+        `MoMo initiate failed for ref ${input.reference}: ${message}`,
       );
 
       return {
@@ -157,7 +153,7 @@ export class MtnMomoProvider implements IPaymentProvider {
         providerRef,
         status: statusMap[data.status] ?? 'PENDING',
         providerStatus: data.status,
-        providerPayload: data,
+        providerPayload: data as unknown as Record<string, unknown>,
       };
     } catch (err: unknown) {
       const message = err instanceof AxiosError ? err.message : 'Unknown error';

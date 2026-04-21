@@ -10,12 +10,30 @@ import {
   Prisma,
 } from '@prisma/client';
 import { FulfillmentService } from '../fulfillment/fulfillment.service';
+import { AgentsService } from '../agents/agents.service';
 
 interface MoMoCallbackPayload extends Prisma.JsonObject {
   externalId: string;
   status: string;
   financialTransactionId?: string;
   reason?: string;
+  walletTopUp?: { userId: string; amount: number };
+}
+
+interface WalletTopUpPayload extends Prisma.JsonObject {
+  walletTopUp: { userId: string; amount: number };
+}
+
+function isWalletTopUpPayload(
+  payload: Prisma.JsonValue | null,
+): payload is WalletTopUpPayload {
+  return (
+    payload !== null &&
+    typeof payload === 'object' &&
+    !Array.isArray(payload) &&
+    'walletTopUp' in payload &&
+    typeof (payload as WalletTopUpPayload).walletTopUp?.userId === 'string'
+  );
 }
 
 @Injectable()
@@ -28,10 +46,15 @@ export class PaymentsService {
     @Inject(forwardRef(() => FulfillmentService))
     private readonly fulfillment: FulfillmentService,
     private readonly mtnMomo: MtnMomoProvider,
+    @Inject(forwardRef(() => AgentsService))
+    private readonly agentsService: AgentsService,
   ) {}
 
   async initiateMoMo(order: Order, payerPhone: string): Promise<void> {
-    const result = await this.mtnMomo.initiate(order, payerPhone);
+    const result = await this.mtnMomo.initiate(
+      { reference: order.reference, amount: order.amount },
+      payerPhone,
+    );
 
     await this.prisma.payment.create({
       data: {
@@ -53,6 +76,38 @@ export class PaymentsService {
     );
   }
 
+  async initiateWalletTopUp(
+    userId: string,
+    amount: number,
+    payerPhone: string,
+  ): Promise<{ providerRef: string }> {
+    const result = await this.mtnMomo.initiate(
+      { reference: `TOPUP-${userId}-${Date.now()}`, amount },
+      payerPhone,
+    );
+
+    if (!result.success) {
+      throw new Error(result.message ?? 'MoMo initiation failed');
+    }
+
+    await this.prisma.payment.create({
+      data: {
+        userId,
+        provider: PaymentProvider.MTN_MOMO,
+        amount,
+        status: PaymentStatus.PENDING,
+        providerRef: result.providerRef,
+        providerStatus: result.providerStatus,
+        providerPayload: { walletTopUp: { userId, amount } },
+      },
+    });
+
+    this.logger.log(
+      `Wallet top-up initiated: userId=${userId} amount=${amount} ref=${result.providerRef}`,
+    );
+    return { providerRef: result.providerRef };
+  }
+
   async handleMoMoCallback(payload: MoMoCallbackPayload): Promise<void> {
     const { externalId, status } = payload;
 
@@ -66,6 +121,9 @@ export class PaymentsService {
       return;
     }
 
+    const isWalletTopUp =
+      !payment.orderId && isWalletTopUpPayload(payment.providerPayload);
+
     if (status === 'SUCCESSFUL') {
       await this.prisma.payment.update({
         where: { id: payment.id },
@@ -77,19 +135,31 @@ export class PaymentsService {
         },
       });
 
-      await this.orders.updateStatus(
-        payment.orderId,
-        OrderStatus.PAYMENT_SUCCESS,
-      );
-
-      // Trigger bundle fulfillment immediately after payment
-      this.fulfillment.fulfill(payment.order).catch((err: Error) => {
-        this.logger.error(
-          `Fulfillment trigger failed for order ${payment.order.reference}: ${err.message}`,
+      if (isWalletTopUp && isWalletTopUpPayload(payment.providerPayload)) {
+        const { userId, amount } = payment.providerPayload.walletTopUp;
+        await this.agentsService.creditWallet(
+          userId,
+          amount,
+          'MoMo wallet top-up',
         );
-      });
+        this.logger.log(
+          `Wallet top-up SUCCESS: userId=${userId} amount=${amount}`,
+        );
+      } else if (payment.orderId && payment.order) {
+        await this.orders.updateStatus(
+          payment.orderId,
+          OrderStatus.PAYMENT_SUCCESS,
+        );
 
-      this.logger.log(`Payment SUCCESS for order ${payment.order.reference}`);
+        const order = payment.order;
+        this.fulfillment.fulfill(order).catch((err: Error) => {
+          this.logger.error(
+            `Fulfillment trigger failed for order ${order.reference}: ${err.message}`,
+          );
+        });
+
+        this.logger.log(`Payment SUCCESS for order ${order.reference}`);
+      }
     } else if (status === 'FAILED') {
       await this.prisma.payment.update({
         where: { id: payment.id },
@@ -101,12 +171,13 @@ export class PaymentsService {
         },
       });
 
-      await this.orders.updateStatus(
-        payment.orderId,
-        OrderStatus.PAYMENT_FAILED,
-      );
-
-      this.logger.warn(`Payment FAILED for order ${payment.order.reference}`);
+      if (payment.orderId && payment.order) {
+        await this.orders.updateStatus(
+          payment.orderId,
+          OrderStatus.PAYMENT_FAILED,
+        );
+        this.logger.warn(`Payment FAILED for order ${payment.order.reference}`);
+      }
     }
   }
 }

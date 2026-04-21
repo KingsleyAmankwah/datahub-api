@@ -53,6 +53,24 @@ enum FulfillmentStatus {
   FAILED
 }
 
+enum UserRole {
+  CUSTOMER
+  AGENT
+  ADMIN
+}
+
+enum AgentStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+enum WalletTransactionType {
+  TOPUP
+  DEDUCTION
+  REFUND
+}
+
 enum BundleType {
   DATA
   VOICE
@@ -63,18 +81,23 @@ model User {
   id            String   @id @default(uuid())
   phoneNumber   String   @unique
   name          String?
+  role          UserRole @default(CUSTOMER)
   isActive      Boolean  @default(true)
   walletBalance Int      @default(0)
+  passwordHash  String?
 
-  orders       Order[]
-  payments     Payment[]
-  ussdSessions UssdSession[]
-  auditLogs    AuditLog[]
+  orders             Order[]
+  payments           Payment[]
+  ussdSessions       UssdSession[]
+  auditLogs          AuditLog[]
+  agent              Agent?
+  walletTransactions WalletTransaction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([phoneNumber])
+  @@index([role])
 }
 
 model Bundle {
@@ -112,9 +135,12 @@ model Order {
   status           OrderStatus  @default(PENDING)
   ussdSessionId    String?
   ussdSession      UssdSession? @relation(fields: [ussdSessionId], references: [id])
+  agentId          String?
+  agent            Agent?       @relation(fields: [agentId], references: [id])
   payment          Payment?
   fulfillment      Fulfillment?
   auditLogs        AuditLog[]
+  walletTx         WalletTransaction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -127,8 +153,8 @@ model Order {
 
 model Payment {
   id              String          @id @default(uuid())
-  orderId         String          @unique
-  order           Order           @relation(fields: [orderId], references: [id])
+  orderId         String?         @unique
+  order           Order?          @relation(fields: [orderId], references: [id])
   userId          String
   user            User            @relation(fields: [userId], references: [id])
   provider        PaymentProvider
@@ -185,6 +211,40 @@ model UssdSession {
 
   @@index([phoneNumber])
   @@index([sessionId])
+}
+
+model Agent {
+  id             String      @id @default(uuid())
+  userId         String      @unique
+  user           User        @relation(fields: [userId], references: [id])
+  businessName   String
+  status         AgentStatus @default(PENDING)
+  commissionRate Int         @default(0)
+
+  orders         Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+model WalletTransaction {
+  id          String                 @id @default(uuid())
+  userId      String
+  user        User                   @relation(fields: [userId], references: [id])
+  type        WalletTransactionType
+  amount      Int
+  balanceBefore Int
+  balanceAfter  Int
+  description String?
+  orderId     String?
+  order       Order?                 @relation(fields: [orderId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([type])
 }
 
 model AuditLog {

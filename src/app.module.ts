@@ -13,6 +13,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { BundlesModule } from './modules/bundles/bundles.module';
+import { AgentsModule } from './modules/agents/agents.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { BundlesModule } from './modules/bundles/bundles.module';
     FulfillmentModule,
     NotificationsModule,
     UssdModule,
+    AgentsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

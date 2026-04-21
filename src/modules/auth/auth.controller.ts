@@ -6,7 +6,12 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { AuthService, CreateAdminDto, LoginDto } from './auth.service';
+import {
+  AuthService,
+  CreateAdminDto,
+  LoginDto,
+  AgentLoginDto,
+} from './auth.service';
 import {
   ApiOperation,
   ApiResponse,
@@ -19,6 +24,15 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Post('agent/login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Agent login with phone number and PIN' })
+  @ApiResponse({ status: 200, description: 'Login successful' })
+  @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  agentLogin(@Body() dto: AgentLoginDto) {
+    return this.authService.agentLogin(dto);
+  }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)

@@ -4,7 +4,7 @@ import {
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsString, MinLength, Matches } from 'class-validator';
 import { PrismaService } from 'src/database/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -13,6 +13,21 @@ export interface AdminPayload {
   id: string;
   email: string;
   name: string;
+}
+
+export class AgentLoginDto {
+  @IsString()
+  @Matches(/^(\+233|0)[2-9]\d{8}$/, { message: 'Invalid Ghana phone number' })
+  phoneNumber: string;
+
+  @IsString()
+  @MinLength(4)
+  pin: string;
+
+  constructor(phoneNumber: string, pin: string) {
+    this.phoneNumber = phoneNumber;
+    this.pin = pin;
+  }
 }
 export class LoginDto {
   @IsEmail()
@@ -56,6 +71,36 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
   ) {}
+
+  async agentLogin(dto: AgentLoginDto): Promise<{
+    accessToken: string;
+    agent: { id: string; phoneNumber: string; name: string | null };
+  }> {
+    const user = await this.prisma.user.findUnique({
+      where: { phoneNumber: dto.phoneNumber },
+      include: { agent: true },
+    });
+
+    if (!user || !user.isActive || !user.passwordHash) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (!user.agent) {
+      throw new UnauthorizedException('No agent account found for this number');
+    }
+
+    const pinMatch = await bcrypt.compare(dto.pin, user.passwordHash);
+    if (!pinMatch) throw new UnauthorizedException('Invalid credentials');
+
+    const payload = { sub: user.id, role: 'AGENT' };
+    const accessToken = this.jwt.sign(payload);
+
+    this.logger.log(`Agent login: ${user.phoneNumber}`);
+    return {
+      accessToken,
+      agent: { id: user.id, phoneNumber: user.phoneNumber, name: user.name },
+    };
+  }
 
   async login(
     dto: LoginDto,

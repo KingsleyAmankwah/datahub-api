@@ -70,7 +70,7 @@ export class OrdersController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 20, ttl: 60000 } })
-  @ApiOperation({ summary: 'Create a new order and initiate MoMo payment' })
+  @ApiOperation({ summary: 'Create a new order and initiate Paystack payment' })
   @ApiResponse({
     status: 201,
     description: 'Order created and payment initiated',
@@ -90,10 +90,10 @@ export class OrdersController {
     });
 
     this.paymentsService
-      .initiateMoMo(order, dto.buyerPhone)
+      .initiatePaystack(order, dto.buyerPhone)
       .catch((err: Error) => {
         this.logger.error(
-          `MoMo initiation failed for order ${order.reference}: ${err.message}`,
+          `Paystack initiation failed for order ${order.reference}: ${err.message}`,
         );
       });
 

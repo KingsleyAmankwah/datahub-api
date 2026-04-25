@@ -15,38 +15,15 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AgentsService } from './agents.service';
-import { ApplyAgentDto, TopUpWalletDto } from './dto/agents.dto';
+import {
+  ApplyAgentDto,
+  TopUpWalletDto,
+  PlaceAgentOrderDto,
+} from './dto/agents.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AgentAuthGuard } from '../auth/agent-auth.guard';
-import { AgentStatus, Network } from '@prisma/client';
-import { IsEnum, IsString, Matches } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { AgentStatus } from '@prisma/client';
 import { PaymentsService } from '../payments/payments.service';
-
-class PlaceAgentOrderDto {
-  @ApiProperty()
-  @IsString()
-  bundleId: string;
-
-  @ApiProperty({ example: '0241234567' })
-  @IsString()
-  @Matches(/^(\+233|0)[2-9]\d{8}$/)
-  recipientPhone: string;
-
-  @ApiProperty({ enum: Network })
-  @IsEnum(Network)
-  recipientNetwork: Network;
-
-  constructor(
-    bundleId: string,
-    recipientPhone: string,
-    recipientNetwork: Network,
-  ) {
-    this.bundleId = bundleId;
-    this.recipientPhone = recipientPhone;
-    this.recipientNetwork = recipientNetwork;
-  }
-}
 
 @ApiTags('Agents')
 @Controller('agents')

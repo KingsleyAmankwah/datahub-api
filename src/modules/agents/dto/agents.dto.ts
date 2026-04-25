@@ -6,7 +6,9 @@ import {
   Matches,
   MinLength,
   MaxLength,
+  IsEnum,
 } from 'class-validator';
+import { Network } from '@prisma/client';
 
 export class ApplyAgentDto {
   @ApiProperty({ example: 'Kofi Data Hub' })
@@ -62,5 +64,30 @@ export class TopUpWalletDto {
   constructor(amount: number, payerPhone: string) {
     this.amount = amount;
     this.payerPhone = payerPhone;
+  }
+}
+
+export class PlaceAgentOrderDto {
+  @ApiProperty()
+  @IsString()
+  bundleId: string;
+
+  @ApiProperty({ example: '0241234567' })
+  @IsString()
+  @Matches(/^(\+233|0)[2-9]\d{8}$/)
+  recipientPhone: string;
+
+  @ApiProperty({ enum: Network })
+  @IsEnum(Network)
+  recipientNetwork: Network;
+
+  constructor(
+    bundleId: string,
+    recipientPhone: string,
+    recipientNetwork: Network,
+  ) {
+    this.bundleId = bundleId;
+    this.recipientPhone = recipientPhone;
+    this.recipientNetwork = recipientNetwork;
   }
 }

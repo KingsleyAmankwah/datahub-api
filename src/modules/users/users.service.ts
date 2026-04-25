@@ -7,13 +7,10 @@ export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findOrCreate(phoneNumber: string): Promise<User> {
-    const existing = await this.prisma.user.findUnique({
+    return this.prisma.user.upsert({
       where: { phoneNumber },
-    });
-    if (existing) return existing;
-
-    return this.prisma.user.create({
-      data: { phoneNumber },
+      update: {},
+      create: { phoneNumber },
     });
   }
 

@@ -18,12 +18,12 @@ import {
   ApiProperty,
 } from '@nestjs/swagger';
 import { Network } from '@prisma/client';
-import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsString } from 'class-validator';
 import { OrdersService } from '../orders/orders.service';
 import { PaymentsService } from './payments.service';
 import { PrismaService } from 'src/database/prisma.service';
 import { DevOnlyGuard } from 'src/common/guards/dev-only.guard';
-import { MtnMomoProvider } from './providers/mtn-momo.provider';
+import { PaystackProvider } from './providers/paystack.provider';
 import { UsersService } from '../users/users.service';
 
 class InitiatePaymentDto {
@@ -41,7 +41,7 @@ class InitiatePaymentDto {
 
   @ApiProperty({
     example: '+233538558959',
-    description: 'Phone MoMo will charge (auto-creates user if new)',
+    description: 'Phone Paystack will charge (auto-creates user if new)',
   })
   @IsString()
   payerPhone: string;
@@ -61,35 +61,18 @@ class InitiatePaymentDto {
 
 class SimulateCallbackDto {
   @ApiProperty({
-    description: 'providerRef returned from /dev/payment/initiate',
+    description: 'providerRef / reference returned from /dev/payment/initiate',
   })
   @IsString()
-  externalId: string;
+  reference: string;
 
-  @ApiProperty({ enum: ['SUCCESSFUL', 'FAILED'], example: 'SUCCESSFUL' })
+  @ApiProperty({ enum: ['success', 'failed'], example: 'success' })
   @IsString()
-  status: 'SUCCESSFUL' | 'FAILED';
+  status: 'success' | 'failed';
 
-  @ApiProperty({ required: false })
-  @IsString()
-  @IsOptional()
-  financialTransactionId?: string;
-
-  @ApiProperty({ required: false })
-  @IsString()
-  @IsOptional()
-  reason?: string;
-
-  constructor(
-    externalId: string,
-    status: 'SUCCESSFUL' | 'FAILED',
-    financialTransactionId?: string,
-    reason?: string,
-  ) {
-    this.externalId = externalId;
+  constructor(reference: string, status: 'success' | 'failed') {
+    this.reference = reference;
     this.status = status;
-    this.financialTransactionId = financialTransactionId;
-    this.reason = reason;
   }
 }
 
@@ -103,17 +86,17 @@ export class DevPaymentTestController {
     private readonly orders: OrdersService,
     private readonly payments: PaymentsService,
     private readonly prisma: PrismaService,
-    private readonly mtnMomo: MtnMomoProvider,
+    private readonly paystack: PaystackProvider,
     private readonly users: UsersService,
   ) {}
 
   @Post('initiate')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
-    summary: '[DEV] Create order & initiate MoMo payment',
+    summary: '[DEV] Create order & initiate Paystack payment',
     description:
-      'Creates a fresh order from the given bundle, then calls MtnMomoProvider.initiate(). ' +
-      'Returns the order and providerRef needed for subsequent steps.',
+      'Creates a fresh order from the given bundle, then calls PaystackProvider.initiate(). ' +
+      'Returns the order, providerRef, and authorizationUrl needed for subsequent steps.',
   })
   @ApiBody({ type: InitiatePaymentDto })
   async initiateFullFlow(@Body() dto: InitiatePaymentDto) {
@@ -128,12 +111,16 @@ export class DevPaymentTestController {
 
     this.logger.log(`[DEV] Order created: ${order.reference}`);
 
-    await this.payments.initiateMoMo(order, dto.payerPhone);
+    const { authorizationUrl } = await this.payments.initiatePaystack(
+      order,
+      dto.payerPhone,
+    );
 
     const updated = await this.orders.findById(order.id);
 
     return {
-      message: 'Order created and MoMo payment initiated',
+      message: 'Order created and Paystack payment initiated',
+      authorizationUrl,
       order: updated,
     };
   }
@@ -141,41 +128,44 @@ export class DevPaymentTestController {
   @Post('simulate-callback')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: '[DEV] Simulate MoMo callback (SUCCESSFUL or FAILED)',
+    summary: '[DEV] Simulate Paystack webhook (success or failed)',
     description:
-      'Posts a fake MoMo callback payload directly into PaymentsService.handleMoMoCallback(). ' +
-      'Use the externalId / providerRef from the initiate response.',
+      'Posts a fake Paystack webhook payload into PaymentsService.handlePaystackWebhook(). ' +
+      'Use the reference / providerRef from the initiate response.',
   })
   @ApiBody({ type: SimulateCallbackDto })
   async simulateCallback(@Body() dto: SimulateCallbackDto) {
-    await this.payments.handleMoMoCallback({
-      externalId: dto.externalId,
-      status: dto.status,
-      financialTransactionId: dto.financialTransactionId ?? `SIM-${Date.now()}`,
-      reason: dto.reason,
+    await this.payments.handlePaystackWebhook({
+      event: 'charge.success',
+      data: {
+        reference: dto.reference,
+        status: dto.status,
+        id: 0,
+        gateway_response: 'Simulated',
+      },
     });
 
     const payment = await this.prisma.payment.findFirst({
-      where: { providerRef: dto.externalId },
+      where: { providerRef: dto.reference },
       include: { order: true },
     });
 
     return {
-      message: `Callback simulated with status=${dto.status}`,
+      message: `Webhook simulated with status=${dto.status}`,
       payment,
     };
   }
 
   @Get('status/:providerRef')
   @ApiOperation({
-    summary: '[DEV] Poll MoMo sandbox for payment status',
+    summary: '[DEV] Verify Paystack transaction status',
     description:
-      'Calls MtnMomoProvider.checkStatus() directly against the sandbox API.',
+      'Calls PaystackProvider.checkStatus() directly against the Paystack API.',
   })
-  @ApiResponse({ status: 200, description: 'Live status from MTN MoMo' })
+  @ApiResponse({ status: 200, description: 'Live status from Paystack' })
   async checkStatus(@Param('providerRef') providerRef: string) {
     const [liveStatus, payment] = await Promise.all([
-      this.mtnMomo.checkStatus(providerRef),
+      this.paystack.checkStatus(providerRef),
       this.prisma.payment.findFirst({
         where: { providerRef },
         include: { order: true },

@@ -11,9 +11,12 @@ async function bootstrap() {
   const port = config.get<number>('PORT', 3000);
   const nodeEnv = config.get<string>('NODE_ENV', 'development');
 
-  // CORS
+  const rawOrigin = config.get<string>('CORS_ORIGIN', 'http://localhost:3001');
+  const origin = rawOrigin.includes(',')
+    ? rawOrigin.split(',').map((o) => o.trim())
+    : rawOrigin;
   app.enableCors({
-    origin: config.get<string>('CORS_ORIGIN', 'http://localhost:3001'),
+    origin,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     credentials: true,
   });

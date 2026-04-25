@@ -22,7 +22,10 @@ import { AgentsModule } from './modules/agents/agents.module';
       envFilePath: '.env',
       cache: true,
     }),
-    ThrottlerModule.forRoot([{ ttl: 60000, limit: 1000 }]),
+    ThrottlerModule.forRoot([
+      { name: 'global', ttl: 60000, limit: 1000 },
+      { name: 'auth', ttl: 60000, limit: 10 },
+    ]),
     ScheduleModule.forRoot(),
     DatabaseModule,
     SessionModule,

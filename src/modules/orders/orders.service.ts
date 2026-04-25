@@ -1,5 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { Network, Order, OrderStatus } from '@prisma/client';
+import { Network, Order, OrderStatus, Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { PrismaService } from 'src/database/prisma.service';
 
@@ -51,7 +51,7 @@ export class OrdersService {
   async updateStatus(
     orderId: string,
     status: OrderStatus,
-    metadata?: Record<string, any>,
+    metadata?: Prisma.InputJsonValue,
   ): Promise<Order> {
     const order = await this.prisma.order.update({
       where: { id: orderId },
@@ -158,7 +158,7 @@ export class OrdersService {
     orderId: string,
     userId: string,
     action: string,
-    metadata?: Record<string, any>,
+    metadata?: Prisma.InputJsonValue,
   ): Promise<void> {
     await this.prisma.auditLog.create({
       data: { orderId, userId, action, metadata },

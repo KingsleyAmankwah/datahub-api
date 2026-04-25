@@ -83,14 +83,9 @@ export class OrdersService {
     return this.prisma.order.findUnique({ where: { reference } });
   }
 
+  // Single query: fetch order with user phone, verify ownership in memory
   async lookupByPhone(reference: string, phone: string) {
-    const raw = await this.prisma.order.findUnique({
-      where: { reference },
-      select: { userId: true, user: { select: { phoneNumber: true } } },
-    });
-    if (!raw || raw.user.phoneNumber !== phone) return null;
-
-    return this.prisma.order.findUnique({
+    const order = await this.prisma.order.findUnique({
       where: { reference },
       select: {
         id: true,
@@ -101,6 +96,7 @@ export class OrdersService {
         status: true,
         createdAt: true,
         updatedAt: true,
+        user: { select: { phoneNumber: true } },
         bundle: {
           select: {
             name: true,
@@ -111,14 +107,16 @@ export class OrdersService {
             sellingPrice: true,
           },
         },
-        payment: {
-          select: { provider: true, status: true, amount: true },
-        },
-        fulfillment: {
-          select: { status: true, completedAt: true },
-        },
+        payment: { select: { provider: true, status: true, amount: true } },
+        fulfillment: { select: { status: true, completedAt: true } },
       },
     });
+
+    if (!order || order.user.phoneNumber !== phone) return null;
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { user: _user, ...result } = order;
+    return result;
   }
 
   async findAll(page = 1, limit = 20, status?: OrderStatus) {
@@ -154,7 +152,7 @@ export class OrdersService {
     return `BB-${date}-${suffix}`;
   }
 
-  async audit(
+  private async audit(
     orderId: string,
     userId: string,
     action: string,

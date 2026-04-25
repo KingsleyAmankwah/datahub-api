@@ -276,13 +276,15 @@ export class UssdService {
     session.orderId = order.id;
     await this.sessions.save(session);
 
-    this.payments
-      .initiateMoMo(order, session.phoneNumber)
-      .catch((err: Error) => {
-        this.logger.error(
-          `MoMo initiation failed for order ${order.reference}: ${err.message}`,
-        );
-      });
+    try {
+      await this.payments.initiatePaystack(order, session.phoneNumber);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      this.logger.error(
+        `Paystack initiation failed for order ${order.reference}: ${msg}`,
+      );
+      return 'END Payment initiation failed. Please try again.';
+    }
 
     return this.menu.paymentInitiated(session.recipientPhone!);
   }

@@ -1,16 +1,22 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from 'src/database/prisma.service';
 import { SessionData, SessionState } from './session.types';
 
 @Injectable()
-export class SessionService implements OnModuleInit {
+export class SessionService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(SessionService.name);
   private readonly store = new Map<
     string,
     { data: SessionData; expiresAt: number }
   >();
   private readonly ttlMs: number;
+  private cleanupInterval!: ReturnType<typeof setInterval>;
 
   constructor(
     private readonly config: ConfigService,
@@ -21,7 +27,7 @@ export class SessionService implements OnModuleInit {
 
   onModuleInit() {
     // Purge expired sessions every minute
-    setInterval(() => {
+    this.cleanupInterval = setInterval(() => {
       const now = Date.now();
       for (const [key, entry] of this.store.entries()) {
         if (entry.expiresAt < now) this.store.delete(key);
@@ -29,6 +35,10 @@ export class SessionService implements OnModuleInit {
     }, 60_000);
 
     this.logger.log('Session store ready (in-memory)');
+  }
+
+  onModuleDestroy() {
+    clearInterval(this.cleanupInterval);
   }
 
   private key(sessionId: string): string {

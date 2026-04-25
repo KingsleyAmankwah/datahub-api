@@ -89,13 +89,18 @@ export class OrdersController {
       recipientNetwork: bundle.network,
     });
 
-    this.paymentsService
-      .initiatePaystack(order, dto.buyerPhone)
-      .catch((err: Error) => {
-        this.logger.error(
-          `Paystack initiation failed for order ${order.reference}: ${err.message}`,
-        );
-      });
+    try {
+      await this.paymentsService.initiatePaystack(order, dto.buyerPhone);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      this.logger.error(
+        `Paystack initiation failed for order ${order.reference}: ${msg}`,
+      );
+      return {
+        ...order,
+        paymentError: 'Payment initiation failed. Please retry.',
+      };
+    }
 
     return order;
   }

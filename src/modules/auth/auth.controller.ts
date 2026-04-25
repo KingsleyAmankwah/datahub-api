@@ -6,12 +6,9 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import {
-  AuthService,
-  CreateAdminDto,
-  LoginDto,
-  AgentLoginDto,
-} from './auth.service';
+import { Throttle } from '@nestjs/throttler';
+import { AuthService } from './auth.service';
+import { AgentLoginDto, CreateAdminDto, LoginDto } from './dto/auth.dto';
 import {
   ApiOperation,
   ApiResponse,
@@ -20,6 +17,7 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
+@Throttle({ auth: { limit: 10, ttl: 60000 } })
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {

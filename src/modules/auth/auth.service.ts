@@ -4,7 +4,7 @@ import {
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
-import { IsEmail, IsString, MinLength, Matches } from 'class-validator';
+import { AgentLoginDto, CreateAdminDto, LoginDto } from './dto/auth.dto';
 import { PrismaService } from 'src/database/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -13,53 +13,6 @@ export interface AdminPayload {
   id: string;
   email: string;
   name: string;
-}
-
-export class AgentLoginDto {
-  @IsString()
-  @Matches(/^(\+233|0)[2-9]\d{8}$/, { message: 'Invalid Ghana phone number' })
-  phoneNumber: string;
-
-  @IsString()
-  @MinLength(4)
-  pin: string;
-
-  constructor(phoneNumber: string, pin: string) {
-    this.phoneNumber = phoneNumber;
-    this.pin = pin;
-  }
-}
-export class LoginDto {
-  @IsEmail()
-  email: string;
-
-  @IsString()
-  @MinLength(8)
-  password: string;
-
-  constructor(email: string, password: string) {
-    this.email = email;
-    this.password = password;
-  }
-}
-
-export class CreateAdminDto {
-  @IsEmail()
-  email: string;
-
-  @IsString()
-  @MinLength(8)
-  password: string;
-
-  @IsString()
-  @MinLength(2)
-  name: string;
-
-  constructor(name: string, email: string, password: string) {
-    this.email = email;
-    this.password = password;
-    this.name = name;
-  }
 }
 
 @Injectable()

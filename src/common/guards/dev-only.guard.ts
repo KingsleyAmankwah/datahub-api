@@ -1,11 +1,12 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class DevOnlyGuard implements CanActivate {
-  canActivate(context: ExecutionContext): boolean {
-    const req = context.switchToHttp().getRequest<Request>();
-    console.log(req.method, req.url);
+  constructor(private readonly config: ConfigService) {}
 
-    return process.env.NODE_ENV !== 'production';
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  canActivate(_context: ExecutionContext): boolean {
+    return this.config.get<string>('NODE_ENV', 'development') !== 'production';
   }
 }

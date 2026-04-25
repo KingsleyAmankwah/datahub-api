@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/database/prisma.service';
 import { OrdersService } from '../orders/orders.service';
-import { MockFulfillmentProvider } from './providers/mock-fulfillment.provider';
+import { RemaDataProvider } from './providers/rema-data.provider';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -21,7 +21,7 @@ export class FulfillmentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly orders: OrdersService,
-    private readonly remaData: MockFulfillmentProvider,
+    private readonly remaData: RemaDataProvider,
     private readonly config: ConfigService,
     private readonly notifications: NotificationsService,
   ) {

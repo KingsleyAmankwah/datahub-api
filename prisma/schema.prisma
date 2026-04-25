@@ -32,6 +32,7 @@ enum PaymentProvider {
   MTN_MOMO
   TELECEL_CASH
   AIRTELTIGO_MONEY
+  PAYSTACK
 }
 
 enum PaymentStatus {

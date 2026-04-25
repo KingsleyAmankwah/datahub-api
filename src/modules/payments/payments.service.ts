@@ -1,7 +1,7 @@
 import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/database/prisma.service';
 import { OrdersService } from '../orders/orders.service';
-import { MtnMomoProvider } from './providers/mtn-momo.provider';
+import { PaystackProvider } from './providers/paystack.provider';
 import {
   Order,
   OrderStatus,
@@ -12,12 +12,15 @@ import {
 import { FulfillmentService } from '../fulfillment/fulfillment.service';
 import { AgentsService } from '../agents/agents.service';
 
-interface MoMoCallbackPayload extends Prisma.JsonObject {
-  externalId: string;
-  status: string;
-  financialTransactionId?: string;
-  reason?: string;
-  walletTopUp?: { userId: string; amount: number };
+interface PaystackWebhookPayload extends Prisma.JsonObject {
+  event: string;
+  data: {
+    reference: string;
+    status: string;
+    id: number;
+    gateway_response: string;
+    metadata?: { walletTopUp?: { userId: string; amount: number } };
+  };
 }
 
 interface WalletTopUpPayload extends Prisma.JsonObject {
@@ -45,13 +48,16 @@ export class PaymentsService {
     private readonly orders: OrdersService,
     @Inject(forwardRef(() => FulfillmentService))
     private readonly fulfillment: FulfillmentService,
-    private readonly mtnMomo: MtnMomoProvider,
+    private readonly paystack: PaystackProvider,
     @Inject(forwardRef(() => AgentsService))
     private readonly agentsService: AgentsService,
   ) {}
 
-  async initiateMoMo(order: Order, payerPhone: string): Promise<void> {
-    const result = await this.mtnMomo.initiate(
+  async initiatePaystack(
+    order: Order,
+    payerPhone: string,
+  ): Promise<{ authorizationUrl: string }> {
+    const result = await this.paystack.initiate(
       { reference: order.reference, amount: order.amount },
       payerPhone,
     );
@@ -60,7 +66,7 @@ export class PaymentsService {
       data: {
         orderId: order.id,
         userId: order.userId,
-        provider: PaymentProvider.MTN_MOMO,
+        provider: PaymentProvider.PAYSTACK,
         amount: order.amount,
         status: result.success ? PaymentStatus.PENDING : PaymentStatus.FAILED,
         providerRef: result.providerRef || null,
@@ -74,26 +80,28 @@ export class PaymentsService {
         ? OrderStatus.PAYMENT_INITIATED
         : OrderStatus.PAYMENT_FAILED,
     );
+
+    return { authorizationUrl: result.message ?? '' };
   }
 
   async initiateWalletTopUp(
     userId: string,
     amount: number,
     payerPhone: string,
-  ): Promise<{ providerRef: string }> {
-    const result = await this.mtnMomo.initiate(
+  ): Promise<{ providerRef: string; authorizationUrl: string }> {
+    const result = await this.paystack.initiate(
       { reference: `TOPUP-${userId}-${Date.now()}`, amount },
       payerPhone,
     );
 
     if (!result.success) {
-      throw new Error(result.message ?? 'MoMo initiation failed');
+      throw new Error(result.message ?? 'Paystack initiation failed');
     }
 
     await this.prisma.payment.create({
       data: {
         userId,
-        provider: PaymentProvider.MTN_MOMO,
+        provider: PaymentProvider.PAYSTACK,
         amount,
         status: PaymentStatus.PENDING,
         providerRef: result.providerRef,
@@ -105,32 +113,39 @@ export class PaymentsService {
     this.logger.log(
       `Wallet top-up initiated: userId=${userId} amount=${amount} ref=${result.providerRef}`,
     );
-    return { providerRef: result.providerRef };
+    return {
+      providerRef: result.providerRef,
+      authorizationUrl: result.message ?? '',
+    };
   }
 
-  async handleMoMoCallback(payload: MoMoCallbackPayload): Promise<void> {
-    const { externalId, status } = payload;
+  async handlePaystackWebhook(payload: PaystackWebhookPayload): Promise<void> {
+    if (!payload.event.startsWith('charge.')) return;
+
+    const { reference, status } = payload.data;
 
     const payment = await this.prisma.payment.findFirst({
-      where: { providerRef: externalId },
+      where: { providerRef: reference },
       include: { order: true },
     });
 
     if (!payment) {
-      this.logger.warn(`MoMo callback: no payment found for ref ${externalId}`);
+      this.logger.warn(
+        `Paystack webhook: no payment found for ref ${reference}`,
+      );
       return;
     }
 
     const isWalletTopUp =
       !payment.orderId && isWalletTopUpPayload(payment.providerPayload);
 
-    if (status === 'SUCCESSFUL') {
+    if (status === 'success') {
       await this.prisma.payment.update({
         where: { id: payment.id },
         data: {
           status: PaymentStatus.SUCCESS,
           providerStatus: status,
-          providerPayload: payload,
+          providerPayload: payload as unknown as Prisma.JsonObject,
           completedAt: new Date(),
         },
       });
@@ -140,7 +155,7 @@ export class PaymentsService {
         await this.agentsService.creditWallet(
           userId,
           amount,
-          'MoMo wallet top-up',
+          'Paystack wallet top-up',
         );
         this.logger.log(
           `Wallet top-up SUCCESS: userId=${userId} amount=${amount}`,
@@ -160,13 +175,13 @@ export class PaymentsService {
 
         this.logger.log(`Payment SUCCESS for order ${order.reference}`);
       }
-    } else if (status === 'FAILED') {
+    } else if (status === 'failed' || status === 'abandoned') {
       await this.prisma.payment.update({
         where: { id: payment.id },
         data: {
           status: PaymentStatus.FAILED,
           providerStatus: status,
-          providerPayload: payload,
+          providerPayload: payload as unknown as Prisma.JsonObject,
           completedAt: new Date(),
         },
       });

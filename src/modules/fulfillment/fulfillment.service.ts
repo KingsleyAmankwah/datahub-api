@@ -146,6 +146,7 @@ export class FulfillmentService {
       where: {
         status: OrderStatus.PAYMENT_SUCCESS,
         updatedAt: { lt: thirtyMinutesAgo },
+        fulfillment: null,
       },
       take: 50,
     });

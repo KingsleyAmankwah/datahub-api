@@ -1,60 +1,27 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Bundle, Network } from '@prisma/client';
-import {
-  IsBoolean,
-  IsEnum,
-  IsInt,
-  IsOptional,
-  IsString,
-  Min,
-} from 'class-validator';
 import { PrismaService } from 'src/database/prisma.service';
+import { CreateBundleDto, UpdateBundleDto } from './dto/bundle.dto';
 
-export class CreateBundleDto {
-  @IsString() name: string;
-  @IsOptional() @IsString() description?: string;
-  @IsEnum(Network) network: Network;
-  @IsInt() @Min(1) dataMb: number;
-  @IsInt() @Min(1) validityDays: number;
-  @IsInt() @Min(1) costPrice: number;
-  @IsInt() @Min(1) sellingPrice: number;
-  @IsOptional() @IsInt() sortOrder?: number;
-
-  constructor(
-    name: string,
-    network: Network,
-    dataMb: number,
-    validityDays: number,
-    costPrice: number,
-    sellingPrice: number,
-    description?: string,
-    sortOrder?: number,
-  ) {
-    this.name = name;
-    this.network = network;
-    this.dataMb = dataMb;
-    this.validityDays = validityDays;
-    this.costPrice = costPrice;
-    this.sellingPrice = sellingPrice;
-    this.description = description;
-    this.sortOrder = sortOrder;
-  }
-}
-
-export class UpdateBundleDto {
-  @IsOptional() @IsString() name?: string;
-  @IsOptional() @IsInt() @Min(1) sellingPrice?: number;
-  @IsOptional() @IsInt() @Min(1) costPrice?: number;
-  @IsOptional() @IsBoolean() isActive?: boolean;
-  @IsOptional() @IsInt() sortOrder?: number;
-}
+export { CreateBundleDto, UpdateBundleDto };
 
 @Injectable()
 export class BundlesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateBundleDto): Promise<Bundle> {
-    return this.prisma.bundle.create({ data: dto });
+    return this.prisma.bundle.create({
+      data: {
+        name: dto.name,
+        description: dto.description,
+        network: dto.network,
+        dataMb: dto.dataMb,
+        validityDays: dto.validityDays,
+        costPrice: dto.costPrice,
+        sellingPrice: dto.sellingPrice,
+        sortOrder: dto.sortOrder ?? 0,
+      },
+    });
   }
 
   async findAll(network?: Network): Promise<Bundle[]> {

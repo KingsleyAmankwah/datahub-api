@@ -12,11 +12,8 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import {
-  BundlesService,
-  CreateBundleDto,
-  UpdateBundleDto,
-} from './bundles.service';
+import { BundlesService } from './bundles.service';
+import { CreateBundleDto, UpdateBundleDto } from './dto/bundle.dto';
 import { Network } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import {

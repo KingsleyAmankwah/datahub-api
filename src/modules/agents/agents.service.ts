@@ -15,6 +15,7 @@ import {
 } from '@prisma/client';
 import { ApplyAgentDto } from './dto/agents.dto';
 import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class AgentsService {
@@ -139,38 +140,42 @@ export class AgentsService {
     return updatedUser.walletBalance;
   }
 
-  // Called by OrdersService when an agent places an order
   async deductWallet(
     userId: string,
     amount: number,
     orderId: string,
     description?: string,
   ) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new NotFoundException('User not found');
-    if (user.walletBalance < amount) {
+    const result = await this.prisma.$executeRaw`
+      UPDATE "User"
+      SET "walletBalance" = "walletBalance" - ${amount}
+      WHERE id = ${userId}
+        AND "walletBalance" >= ${amount}
+    `;
+
+    if (result === 0) {
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      if (!user) throw new NotFoundException('User not found');
       throw new BadRequestException(
         `Insufficient wallet balance. Available: GHS ${(user.walletBalance / 100).toFixed(2)}`,
       );
     }
 
-    await this.prisma.$transaction([
-      this.prisma.user.update({
-        where: { id: userId },
-        data: { walletBalance: { decrement: amount } },
-      }),
-      this.prisma.walletTransaction.create({
-        data: {
-          userId,
-          type: WalletTransactionType.DEDUCTION,
-          amount,
-          balanceBefore: user.walletBalance,
-          balanceAfter: user.walletBalance - amount,
-          description: description ?? 'Bundle order',
-          orderId,
-        },
-      }),
-    ]);
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
+
+    await this.prisma.walletTransaction.create({
+      data: {
+        userId,
+        type: WalletTransactionType.DEDUCTION,
+        amount,
+        balanceBefore: user.walletBalance + amount,
+        balanceAfter: user.walletBalance,
+        description: description ?? 'Bundle order',
+        orderId,
+      },
+    });
 
     this.logger.log(
       `Wallet deducted: userId=${userId} amount=${amount} orderId=${orderId}`,
@@ -191,45 +196,57 @@ export class AgentsService {
     if (!bundle || !bundle.isActive)
       throw new NotFoundException('Bundle not found');
 
-    // Agents buy at cost price
     const amount = bundle.costPrice;
-
-    await this.deductWallet(
-      userId,
-      amount,
-      'pending',
-      `Order for ${recipientPhone}`,
-    );
-
     const reference = this.generateReference();
 
-    const order = await this.prisma.order.create({
-      data: {
-        reference,
-        userId,
-        bundleId,
-        recipientPhone,
-        recipientNetwork,
-        amount,
-        status: OrderStatus.PAYMENT_SUCCESS,
-        agentId: agent.id,
-      },
-    });
+    // Single transaction: deduct wallet, create order, create wallet tx record
+    return this.prisma.$transaction(async (tx) => {
+      const result = await tx.$executeRaw`
+        UPDATE "User"
+        SET "walletBalance" = "walletBalance" - ${amount}
+        WHERE id = ${userId}
+          AND "walletBalance" >= ${amount}
+      `;
 
-    // Update wallet transaction with actual orderId
-    await this.prisma.walletTransaction.updateMany({
-      where: {
-        userId,
-        orderId: 'pending',
-        description: `Order for ${recipientPhone}`,
-      },
-      data: { orderId: order.id },
-    });
+      if (result === 0) {
+        const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+        throw new BadRequestException(
+          `Insufficient wallet balance. Available: GHS ${(user.walletBalance / 100).toFixed(2)}`,
+        );
+      }
 
-    this.logger.log(
-      `Agent order placed: ${reference} agent=${agent.businessName}`,
-    );
-    return order;
+      const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+
+      const order = await tx.order.create({
+        data: {
+          reference,
+          userId,
+          bundleId,
+          recipientPhone,
+          recipientNetwork,
+          amount,
+          status: OrderStatus.PAYMENT_SUCCESS,
+          agentId: agent.id,
+        },
+      });
+
+      await tx.walletTransaction.create({
+        data: {
+          userId,
+          type: WalletTransactionType.DEDUCTION,
+          amount,
+          balanceBefore: user.walletBalance + amount,
+          balanceAfter: user.walletBalance,
+          description: `Order for ${recipientPhone}`,
+          orderId: order.id,
+        },
+      });
+
+      this.logger.log(
+        `Agent order placed: ${reference} agent=${agent.businessName}`,
+      );
+      return order;
+    });
   }
 
   // Admin methods
@@ -272,7 +289,7 @@ export class AgentsService {
 
   private generateReference(): string {
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const suffix = randomUUID().split('-')[0].toUpperCase();
     return `AG-${date}-${suffix}`;
   }
 }
